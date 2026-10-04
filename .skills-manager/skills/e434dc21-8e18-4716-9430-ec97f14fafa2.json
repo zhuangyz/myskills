@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "e434dc21-8e18-4716-9430-ec97f14fafa2",
+  "path": "long-task-pipeline",
+  "path_key": "long-task-pipeline",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

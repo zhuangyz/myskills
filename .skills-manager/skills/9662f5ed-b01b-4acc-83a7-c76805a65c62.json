@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "9662f5ed-b01b-4acc-83a7-c76805a65c62",
+  "path": "i-have-a-idea",
+  "path_key": "i-have-a-idea",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "e14ebff7-bc64-4b3e-810a-ed8a652bef85",
+  "path": "sociological-imagination",
+  "path_key": "sociological-imagination",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
