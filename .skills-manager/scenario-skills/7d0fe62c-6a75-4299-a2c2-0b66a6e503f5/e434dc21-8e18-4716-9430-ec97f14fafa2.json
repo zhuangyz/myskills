@@ -5,6 +5,7 @@
   "sort_order": 3,
   "tools": {
     "claude_code": true,
+    "codebuddy": true,
     "codex": true,
     "continue": true,
     "cursor": true,
@@ -13,6 +14,7 @@
     "github_copilot": true,
     "kiro": true,
     "opencode": true,
+    "workbuddy": true,
     "zcode": true
   }
 }
