@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "34bae420-5cb0-4e95-bdd4-d2c33360d0b8",
+  "path": "gov-report-interpretation",
+  "path_key": "gov-report-interpretation",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
