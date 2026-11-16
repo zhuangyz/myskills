@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "skill_id": "9809e020-6165-4ba2-a957-f5e02f5d3ea1",
+  "path": "remotion-video-producer",
+  "path_key": "remotion-video-producer",
+  "enabled": true,
+  "tags": [
+    "remotion",
+    "video",
+    "设计"
+  ],
+  "source": {
+    "type": "local",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
