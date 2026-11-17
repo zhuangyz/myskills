@@ -8,6 +8,7 @@
  *   node scripts/assert.mjs --project . --stage g3
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --copy "多一克，就不是这个味。"
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --sheet   # 生成九宫格抽帧
+ *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --zoom    # 生成 4 张 100% 裁切放大图
  * 退出码：有 FAIL 时为 1。
  */
 import fs from 'node:fs';
@@ -24,6 +25,9 @@ const STAGE = opt('stage', 'all');
 const MP4 = opt('mp4', null);
 const COPY = args.reduce((acc, a, i) => (a === '--copy' ? [...acc, args[i + 1]] : acc), []);
 const SHEET = args.includes('--sheet');
+const ZOOM = args.includes('--zoom');
+const zoomIdx = args.indexOf('--zoom');
+const ZOOM_T = zoomIdx >= 0 && args[zoomIdx + 1] && !args[zoomIdx + 1].startsWith('--') ? args[zoomIdx + 1] : null;
 
 const results = [];
 const dedupe = (set) => [...set];
@@ -253,6 +257,43 @@ function makeContactSheet() {
   ]);
 }
 
+/* ---------- 4.6 100% 裁切放大图：把“凑近看”自动化 ---------- */
+function makeZoom() {
+  if (!MP4) return add('WARN', 'zoom', '未提供 --mp4，跳过放大图');
+  const file = path.resolve(PROJECT, MP4);
+  if (!fs.existsSync(file)) return add('FAIL', 'zoom', `找不到 ${MP4}`);
+  const ff = findFfmpeg();
+  if (!ff) return add('WARN', 'zoom', '找不到 ffmpeg，跳过放大图');
+
+  // 取 1/3 时间点，通常已经有画面内容
+  let t = ZOOM_T;
+  if (!t) {
+    const probe = spawnSync(ff.bin.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file], { encoding: 'utf8' });
+    const dur = parseFloat((probe.stdout || '').trim());
+    t = Number.isFinite(dur) ? (dur / 3).toFixed(2) : '1';
+  }
+
+  const outDir = path.join(PROJECT, 'out');
+  fs.mkdirSync(outDir, { recursive: true });
+  const quads = [
+    ['tl', 'crop=iw/2:ih/2:0:0'],
+    ['tr', 'crop=iw/2:ih/2:iw/2:0'],
+    ['bl', 'crop=iw/2:ih/2:0:ih/2'],
+    ['br', 'crop=iw/2:ih/2:iw/2:ih/2'],
+  ];
+  const made = [];
+  for (const [name, crop] of quads) {
+    const out = path.join(outDir, `zoom-${name}.png`);
+    const r = spawnSync(ff.bin, ['-hide_banner', '-v', 'error', '-y', '-ss', String(t), '-i', file, '-vf', crop, '-frames:v', '1', out], { encoding: 'utf8' });
+    if (r.status === 0) made.push(path.relative(PROJECT, out));
+  }
+  if (made.length !== 4) return add('WARN', 'zoom', `放大图生成不完整（${made.length}/4）`);
+  add('WARN', 'zoom', `4 张 100% 裁切图已生成（t=${t}s）— 找“能画出边界的纯色块”`, [
+    ...made,
+    '找到一块 = 一个未处理区域（天空之外）',
+  ]);
+}
+
 /* ---------- 5. 交付提醒 ---------- */
 function checkDelivery() {
   const has = fs.existsSync(path.join(PROJECT, 'delivery.md'));
@@ -261,7 +302,7 @@ function checkDelivery() {
 
 const stages = STAGE === 'all' ? ['g2', 'g3', 'g4', 'g5'] : [STAGE];
 if (stages.includes('g2') || stages.includes('g3')) { checkFonts(); checkHardcoded(); }
-if (stages.includes('g4')) { checkRhythm(); if (MP4) checkDeadTime(); if (MP4 && SHEET) makeContactSheet(); }
+if (stages.includes('g4')) { checkRhythm(); if (MP4) checkDeadTime(); if (MP4 && SHEET) makeContactSheet(); if (MP4 && ZOOM) makeZoom(); }
 if (stages.includes('g5')) checkDelivery();
 
 const icon = { PASS: '✓', WARN: '!', FAIL: '✗' };
