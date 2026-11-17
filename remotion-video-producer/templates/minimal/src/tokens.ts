@@ -40,6 +40,13 @@ export const MOTION = {
   maxShift: 8,
 };
 
+// 画面由 3D / 图形生成时必填：先选档位，再决定要不要那四项后处理
+// 写实 / 半写实 / 风格化 / 图形化 —— 半写实缺任何一项后处理就塌成塑料感
+export const LOOK = {
+  tier: 'graphic' as 'realistic' | 'semi-realistic' | 'stylized' | 'graphic',
+  requiredPost: ['bloom', 'dof', 'motion-blur', 'grain'], // 仅 semi-realistic 全给
+};
+
 // 有实拍素材时必填：全局色调 + 逐素材曝光
 export const GRADE = {
   global: 'saturate(0.82) contrast(1.08)',

@@ -7,6 +7,7 @@
  *   node scripts/assert.mjs --project . --stage g2
  *   node scripts/assert.mjs --project . --stage g3
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --copy "多一克，就不是这个味。"
+ *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --sheet   # 生成九宫格抽帧
  * 退出码：有 FAIL 时为 1。
  */
 import fs from 'node:fs';
@@ -22,6 +23,7 @@ const PROJECT = path.resolve(opt('project', '.'));
 const STAGE = opt('stage', 'all');
 const MP4 = opt('mp4', null);
 const COPY = args.reduce((acc, a, i) => (a === '--copy' ? [...acc, args[i + 1]] : acc), []);
+const SHEET = args.includes('--sheet');
 
 const results = [];
 const dedupe = (set) => [...set];
@@ -185,6 +187,8 @@ function checkRhythm() {
 
 /* ---------- 4. 死时间：ffmpeg freezedetect ---------- */
 function findFfmpeg() {
+  const sys = spawnSync('which', ['ffmpeg'], { encoding: 'utf8' });
+  if (sys.status === 0 && sys.stdout.trim()) return { bin: sys.stdout.trim(), dir: null };
   const base = path.join(PROJECT, 'node_modules', '@remotion');
   if (fs.existsSync(base)) {
     for (const d of fs.readdirSync(base)) {
@@ -193,8 +197,6 @@ function findFfmpeg() {
       if (fs.existsSync(bin)) return { bin, dir: path.join(base, d) };
     }
   }
-  const which = spawnSync('which', ['ffmpeg'], { encoding: 'utf8' });
-  if (which.status === 0) return { bin: which.stdout.trim(), dir: null };
   return null;
 }
 
@@ -223,6 +225,34 @@ function checkDeadTime() {
   else add('WARN', 'deadtime', `${long.length} 段静止 0.5–1s`, fmt.slice(0, 8));
 }
 
+/* ---------- 4.5 九宫格抽帧：机器备料，人眼判断 ---------- */
+function makeContactSheet() {
+  if (!MP4) return add('WARN', 'sheet', '未提供 --mp4，跳过抽帧');
+  const file = path.resolve(PROJECT, MP4);
+  if (!fs.existsSync(file)) return add('FAIL', 'sheet', `找不到 ${MP4}`);
+
+  const ff = findFfmpeg();
+  if (!ff) return add('WARN', 'sheet', '找不到 ffmpeg，跳过抽帧');
+
+  const out = path.join(PROJECT, 'out', 'contact-sheet.png');
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+
+  const r = spawnSync(
+    ff.bin,
+    ['-hide_banner', '-v', 'error', '-y', '-i', file,
+     '-vf', 'fps=1/2,scale=480:-1,tile=5x2:padding=6:margin=6:color=0x141414',
+     '-frames:v', '1', out],
+    { encoding: 'utf8' }
+  );
+  if (r.status !== 0) return add('WARN', 'sheet', `抽帧失败：${(r.stderr || '').trim().slice(0, 120)}`);
+
+  add('WARN', 'sheet', `九宫格已生成 ${path.relative(PROJECT, out)} — 需人眼判三条`, [
+    '1) 任一格主体 <8% 且画面无结构 → 该镜头判负',
+    '2) 相邻两格几乎一样 → 节奏停滞',
+    '3) 九格没有一格能单独当封面 → 缺强画面，重做分镜',
+  ]);
+}
+
 /* ---------- 5. 交付提醒 ---------- */
 function checkDelivery() {
   const has = fs.existsSync(path.join(PROJECT, 'delivery.md'));
@@ -231,7 +261,7 @@ function checkDelivery() {
 
 const stages = STAGE === 'all' ? ['g2', 'g3', 'g4', 'g5'] : [STAGE];
 if (stages.includes('g2') || stages.includes('g3')) { checkFonts(); checkHardcoded(); }
-if (stages.includes('g4')) { checkRhythm(); if (MP4) checkDeadTime(); }
+if (stages.includes('g4')) { checkRhythm(); if (MP4) checkDeadTime(); if (MP4 && SHEET) makeContactSheet(); }
 if (stages.includes('g5')) checkDelivery();
 
 const icon = { PASS: '✓', WARN: '!', FAIL: '✗' };
