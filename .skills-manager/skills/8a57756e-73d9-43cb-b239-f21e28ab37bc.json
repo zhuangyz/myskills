@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "8a57756e-73d9-43cb-b239-f21e28ab37bc",
+  "path": "threejs-360-scene",
+  "path_key": "threejs-360-scene",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
