@@ -9,6 +9,7 @@
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --copy "多一克，就不是这个味。"
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --sheet   # 生成九宫格抽帧
  *   node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --zoom    # 生成 4 张 100% 裁切放大图
+ *   node scripts/assert.mjs --compare out/frame.png --ref reference/ref.jpg      # 与参考图并排 + 统计对比
  * 退出码：有 FAIL 时为 1。
  */
 import fs from 'node:fs';
@@ -28,6 +29,12 @@ const SHEET = args.includes('--sheet');
 const ZOOM = args.includes('--zoom');
 const zoomIdx = args.indexOf('--zoom');
 const ZOOM_T = zoomIdx >= 0 && args[zoomIdx + 1] && !args[zoomIdx + 1].startsWith('--') ? args[zoomIdx + 1] : null;
+const argOf = (name) => {
+  const i = args.indexOf(`--${name}`);
+  return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : null;
+};
+const COMPARE = argOf('compare');
+const REF = argOf('ref');
 
 const results = [];
 const dedupe = (set) => [...set];
@@ -294,6 +301,83 @@ function makeZoom() {
   ]);
 }
 
+/* ---------- 4.7 参考对照：把“像不像”变成可对照的数 ---------- */
+// 1×1 缩放取精确平均 RGB —— 水下题材的关键是通道比，不是饱和度
+const meanRGB = (ff, file) => {
+  const r = spawnSync(ff.bin, ['-hide_banner', '-v', 'error', '-i', file,
+    '-vf', 'scale=1:1', '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-'
+  ], { maxBuffer: 1024 });
+  const b = r.stdout;
+  return b && b.length >= 3 ? { r: b[0], g: b[1], b: b[2] } : null;
+};
+
+const imgStats = (ff, file) => {
+  const r = spawnSync(ff.bin, ['-hide_banner', '-i', file,
+    '-vf', 'signalstats,metadata=mode=print:file=-', '-c:v', 'rawvideo', '-frames:v', '1', '-f', 'null', '-'
+  ], { encoding: 'utf8' });
+  const txt = (r.stdout || '') + (r.stderr || '');
+  const get = (k) => {
+    const m = txt.match(new RegExp(`lavfi\\.signalstats\\.${k}=(\\d+\\.?\\d*)`));
+    return m ? parseFloat(m[1]) : null;
+  };
+  return {
+    yavg: get('YAVG'), satavg: get('SATAVG'),
+    ymin: get('YMIN'), ymax: get('YMAX'),
+    ylow: get('YLOW'), yhigh: get('YHIGH'),
+  };
+};
+
+function compareToReference() {
+  if (!COMPARE) return;
+  if (!REF) return add('FAIL', 'ref', '--compare 需要同时给 --ref <参考图>');
+  const ff = findFfmpeg();
+  if (!ff) return add('WARN', 'ref', '找不到 ffmpeg，跳过对照');
+
+  const shot = path.resolve(PROJECT, COMPARE);
+  const ref = path.resolve(PROJECT, REF);
+  for (const f of [shot, ref]) if (!fs.existsSync(f)) return add('FAIL', 'ref', `找不到 ${path.relative(PROJECT, f)}`);
+
+  const A = imgStats(ff, ref);   // 参考
+  const B = imgStats(ff, shot);  // 成品
+
+  const AR = meanRGB(ff, ref);
+  const BR = meanRGB(ff, shot);
+  const rg = (c) => (c && c.g ? c.r / c.g : null);
+  const bg = (c) => (c && c.g ? c.b / c.g : null);
+
+  const rows = [
+    ['平均亮度 YAVG', A.yavg, B.yavg, 12],
+    ['平均饱和度 SATAVG', A.satavg, B.satavg, 15],
+    ['动态范围 YHIGH-YLOW', A.yhigh != null ? A.yhigh - A.ylow : null, B.yhigh != null ? B.yhigh - B.ylow : null, 20],
+    ['R/G 通道比（红光残留）', rg(AR), rg(BR), 0.12],
+    ['B/G 通道比（水色偏移）', bg(AR), bg(BR), 0.12],
+  ];
+
+  const detail = [];
+  let bad = 0;
+  for (const [name, a, b, tol] of rows) {
+    if (a == null || b == null) continue;
+    const d = b - a;
+    const pct = a === 0 ? 0 : (d / a) * 100;
+    const flag = Math.abs(d) > tol ? '✗' : '✓';
+    if (flag === '✗') bad++;
+    const digits = tol < 1 ? 3 : 1;
+    detail.push(`${flag} ${name}: 参考 ${a.toFixed(digits)} / 成品 ${b.toFixed(digits)} / 偏差 ${d > 0 ? '+' : ''}${d.toFixed(digits)}（容差 ±${tol}）`);
+  }
+
+  // 并排图
+  const outDir = path.join(PROJECT, 'out');
+  fs.mkdirSync(outDir, { recursive: true });
+  const out = path.join(outDir, 'compare.png');
+  spawnSync(ff.bin, ['-hide_banner', '-v', 'error', '-y',
+    '-i', ref, '-i', shot,
+    '-filter_complex', '[0:v]scale=960:-1,drawtext=text=REFERENCE:x=12:y=12:fontsize=20:fontcolor=white[a];[1:v]scale=960:-1,drawtext=text=OURS:x=12:y=12:fontsize=20:fontcolor=white[b];[a][b]hstack',
+    '-frames:v', '1', out], { encoding: 'utf8' });
+
+  if (bad) add('FAIL', 'ref', `${bad} 项与参考偏差超容差 — 并排图 ${path.relative(PROJECT, out)}`, detail);
+  else add('PASS', 'ref', '与参考五项均在容差内', detail);
+}
+
 /* ---------- 5. 交付提醒 ---------- */
 function checkDelivery() {
   const has = fs.existsSync(path.join(PROJECT, 'delivery.md'));
@@ -304,6 +388,8 @@ const stages = STAGE === 'all' ? ['g2', 'g3', 'g4', 'g5'] : [STAGE];
 if (stages.includes('g2') || stages.includes('g3')) { checkFonts(); checkHardcoded(); }
 if (stages.includes('g4')) { checkRhythm(); if (MP4) checkDeadTime(); if (MP4 && SHEET) makeContactSheet(); if (MP4 && ZOOM) makeZoom(); }
 if (stages.includes('g5')) checkDelivery();
+
+if (COMPARE) compareToReference();
 
 const icon = { PASS: '✓', WARN: '!', FAIL: '✗' };
 console.log(`\n[assert] ${rel(PROJECT) || '.'}  stage=${stages.join(',')}\n`);
