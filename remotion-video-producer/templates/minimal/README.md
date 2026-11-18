@@ -10,10 +10,15 @@ npm i
 npm run dev
 ```
 
-## 起项目后立刻要做的两件事
+## 起项目后立刻要做的三件事
 
-1. **放字体**：`public/fonts/` 放按「全部文案并集」生成的 woff2 子集，并在 `src/tokens.ts` 的 `FONTS` 里登记。同时写 `public/fonts/glyphs.txt`（一行，把所有用到的字连起来），否则 `assert.mjs` 无法验证字形覆盖。
-2. **拷断言**：把 skill 的 `scripts/assert.mjs` 拷到项目根目录的 `scripts/`，每道门跑一次。
+1. **改 `src/spec.json`**：`platform` 填投放平台（决定节奏与字数阈值），`copy` 按字体登记全片全部文案。场景代码只从这里取文案。
+2. **放字体**：`public/fonts/` 放按 `spec.json` 全部文案并集生成的 woff2 子集，在 `src/tokens.ts` 的 `FONTS` 里登记；`FONTS` 的键要和 `spec.json` 里 `copy` 的键一致。字形覆盖由断言直接读字体 cmap 核对，不需要手写清单。
+3. **确认断言能跑**：`scripts/assert.mjs` 是转发器，会去 skill 目录找唯一那份门禁脚本。找不到时设 `VIDEO_SKILL_DIR=<skill 目录>`。G4 / G5 需要 ffmpeg（`brew install ffmpeg`，或用 Remotion 自带的）。
+
+```bash
+npm run assert:g1   # 每道门一条，g1 … g5
+```
 
 ## 为什么模板里这么多注释
 

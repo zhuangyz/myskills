@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts Full out/video.mp4",
-    "assert": "node scripts/assert.mjs --project . --stage all"
+    "assert:g1": "node scripts/assert.mjs --project . --stage g1",
+    "assert:g2": "node scripts/assert.mjs --project . --stage g2",
+    "assert:g3": "node scripts/assert.mjs --project . --stage g3",
+    "assert:g4": "node scripts/assert.mjs --project . --stage g4 --mp4 out/video.mp4 --sheet",
+    "assert:g5": "node scripts/assert.mjs --project . --stage g5 --mp4 out/video.mp4"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",

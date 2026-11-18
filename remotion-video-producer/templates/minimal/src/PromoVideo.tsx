@@ -4,7 +4,7 @@ import { Scene } from './Scene';
 import { CANVAS, COLORS } from './tokens';
 
 // 时间轴必须与 storyboard.md 一一对应。
-// assert.mjs 会解析这里的字面量来核对切点，所以不要改成变量。
+// 切点由 assert.mjs 在成片上检测，这里用 Sequence / Series / TransitionSeries、字面量或变量都可以。
 export const PromoVideo: React.FC = () => (
   <AbsoluteFill style={{ backgroundColor: COLORS.bg }}>
     <Sequence from={0} durationInFrames={CANVAS.durationInFrames}>
