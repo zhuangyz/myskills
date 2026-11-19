@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "skill_id": "ee769da4-aa99-41ee-bb28-89c25499864d",
+  "path": "scene-prompt-guide",
+  "path_key": "scene-prompt-guide",
+  "enabled": true,
+  "tags": [],
+  "source": {
+    "type": "import",
+    "ref": null,
+    "subpath": null,
+    "branch": null
+  }
+}
